@@ -1,0 +1,75 @@
+import random
+import torch
+import numpy as np
+from transformers import BertTokenizer, BertForSequenceClassification, AdamW
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
+# Function to generate a random claim text
+def generate_claim_text():
+    treatments = ["treatment for a broken arm", "prescription medication", "medical consultation", "dental cleaning", "surgery for appendicitis", "MRI scan", "chiropractic session", "cosmetic surgery", "eye examination", "physical therapy", "allergy testing", "dental crown procedure", "consultation with nutritionist", "physical examination", "prescription for homeopathic remedy", "podiatry appointment", "cosmetic Botox injections"]
+    pharmacies = ["pharmacy A", "pharmacy B", "pharmacy C"]
+    doctors = ["Dr. Smith", "Dr. Johnson", "Dr. Brown", "Dr. Lee", "Dr. Clark", "Dr. White"]
+    treatments = random.choices(treatments, k=1)[0]
+    pharmacies = random.choices(pharmacies, k=1)[0]
+    doctors = random.choices(doctors, k=1)[0]
+    claim_amount = random.randint(50, 10000)
+    claim_date = datetime.today() - timedelta(days=random.randint(1, 365))
+    return f"Patient received {treatments} on {claim_date.strftime('%Y-%m-%d')}. Claim amount: ${claim_amount}."
+
+# Function to generate a random validation label
+def generate_validation_label():
+    return random.randint(0, 1)
+
+# Generate synthetic dataset
+data = []
+for _ in range(2000):  # Generate 2000 rows for the dataset
+    claim_text = generate_claim_text()
+    validation_label = generate_validation_label()
+    data.append((claim_text, validation_label))
+
+# Split data into features (X) and labels (y)
+X = [row[0] for row in data]
+y = [row[1] for row in data]
+
+# Split data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Load pre-trained BERT model and tokenizer
+model_name = "bert-base-uncased"
+tokenizer = BertTokenizer.from_pretrained(model_name)
+model = BertForSequenceClassification.from_pretrained(model_name)
+
+# Tokenize and encode the training data
+X_train_tokens = tokenizer(X_train, padding=True, truncation=True, return_tensors="pt")
+X_test_tokens = tokenizer(X_test, padding=True, truncation=True, return_tensors="pt")
+
+# Convert labels to tensors
+y_train_tensor = torch.tensor(y_train)
+y_test_tensor = torch.tensor(y_test)
+
+# Fine-tune the BERT model
+optimizer = AdamW(model.parameters(), lr=5e-5)
+epochs = 3
+batch_size = 16
+
+for epoch in range(epochs):
+    model.train()
+    for i in range(0, len(X_train), batch_size):
+        optimizer.zero_grad()
+        batch_X = {key: val[i:i+batch_size] for key, val in X_train_tokens.items()}
+        batch_y = y_train_tensor[i:i+batch_size]
+        outputs = model(**batch_X, labels=batch_y)
+        loss = outputs.loss
+        loss.backward()
+        optimizer.step()
+
+# Evaluate the fine-tuned model
+model.eval()
+with torch.no_grad():
+    outputs = model(**X_test_tokens)
+    predictions = np.argmax(outputs.logits.detach().numpy(), axis=1)
+
+# Calculate accuracy
+accuracy = accuracy_score(y_test, predictions)
+print("Accuracy:", accuracy)

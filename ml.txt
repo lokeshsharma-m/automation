@@ -1,0 +1,5 @@
+numpy-computing and working with numerical data
+pandas-wrangling tabular data, or dataframes
+matplotlib-popular library for data visualization
+spacy-basic text processing functionality
+langchain-used for llm
